@@ -42,7 +42,7 @@ namespace RtmpSharp.IO
         public void Register(Type type) { serializerObjectFactory.Register(type); }
         public void RegisterAlias(Type type, string alias, bool canonical) { serializerObjectFactory.RegisterAlias(type, alias, canonical); }
 
-        internal string GetAlias(string typeName) { return serializerObjectFactory.GetAlias(typeName); }
+        public string GetAlias(string typeName) { return serializerObjectFactory.GetAlias(typeName); }
 
         internal bool CanCreate(string typeName) { return serializerObjectFactory.CanCreate(typeName); }
         internal bool CanCreate(Type type) { return serializerObjectFactory.CanCreate(type); }

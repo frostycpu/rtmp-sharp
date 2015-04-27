@@ -21,5 +21,8 @@ namespace RtmpSharp.Messaging.Messages
 
         [SerializedName("extendedData")]
         public object ExtendedData { get; set; }
+
+        [SerializedName("correlationId")]
+        public object CorrelationId { get; set; }
     }
 }

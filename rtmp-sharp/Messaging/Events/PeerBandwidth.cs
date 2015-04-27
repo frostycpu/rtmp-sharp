@@ -3,7 +3,7 @@ namespace RtmpSharp.Messaging.Events
 {
     class PeerBandwidth : RtmpEvent
     {
-        public enum BandwithLimitType : byte
+        public enum BandwidthLimitType : byte
         {
             Hard = 0,
             Soft = 1,
@@ -11,11 +11,11 @@ namespace RtmpSharp.Messaging.Events
         }
 
         public int AcknowledgementWindowSize { get; private set; }
-        public BandwithLimitType LimitType { get; private set; }
+        public BandwidthLimitType LimitType { get; private set; }
 
-        private PeerBandwidth() : base(Net.MessageType.SetPeerBandwith) { }
+        private PeerBandwidth() : base(Net.MessageType.SetPeerBandwidth) { }
 
-        public PeerBandwidth(int acknowledgementWindowSize, BandwithLimitType limitType) : this()
+        public PeerBandwidth(int acknowledgementWindowSize, BandwidthLimitType limitType) : this()
         {
             AcknowledgementWindowSize = acknowledgementWindowSize;
             LimitType = limitType;
@@ -24,7 +24,7 @@ namespace RtmpSharp.Messaging.Events
         public PeerBandwidth(int acknowledgementWindowSize, byte limitType) : this()
         {
             AcknowledgementWindowSize = acknowledgementWindowSize;
-            LimitType = (BandwithLimitType)limitType;
+            LimitType = (BandwidthLimitType)limitType;
         }
     }
 }

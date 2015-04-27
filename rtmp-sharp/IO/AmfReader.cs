@@ -276,8 +276,15 @@ namespace RtmpSharp.IO
                     foreach (var pair in pairs)
                     {
                         IMemberWrapper wrapper;
+
+                        //Fix for subscribing
+                        var tempValue = pair.Value;
+                        if (pair.Key == "operation")
+                            if (pair.Value.GetType() == typeof(double))
+                                tempValue = Convert.ToInt32(pair.Value);
+
                         if (classDescription.TryGetMember(pair.Key, out wrapper))
-                            wrapper.SetValue(instance, pair.Value);
+                            wrapper.SetValue(instance, tempValue);
                     }
                     return instance;
 

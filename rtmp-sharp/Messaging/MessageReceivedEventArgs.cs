@@ -7,12 +7,14 @@ namespace RtmpSharp.Messaging
         public readonly object Body;
         public readonly string ClientId;
         public readonly string Subtopic;
+        public object Result;
 
         internal MessageReceivedEventArgs(string clientId, string subtopic, object body)
         {
             ClientId = clientId;
             Subtopic = subtopic;
             Body = body;
+            Result = body;
         }
     }
 }

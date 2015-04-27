@@ -229,7 +229,7 @@ namespace RtmpSharp.Net
                     });
                 case MessageType.WindowAcknowledgementSize:
                     return GetMessageBytes(message, (w, o) => w.WriteInt32(((WindowAcknowledgementSize)o).Count));
-                case MessageType.SetPeerBandwith:
+                case MessageType.SetPeerBandwidth:
                     return GetMessageBytes(message, (w, o) =>
                     {
                         var m = (PeerBandwidth)o;
@@ -286,18 +286,19 @@ namespace RtmpSharp.Net
 
             // write the method name or result type (first section)
             var isRequest = methodCall.CallStatus == CallStatus.Request;
+            var isResult = methodCall.CallStatus == CallStatus.Result;
             if (isRequest)
-                writer.WriteAmfItem(encoding, methodCall.Name);
+                writer.WriteAmfItem(ObjectEncoding.Amf0, methodCall.Name);
             else
-                writer.WriteAmfItem(encoding, methodCall.IsSuccess ? "_result" : "_error");
+                writer.WriteAmfItem(ObjectEncoding.Amf0, methodCall.IsSuccess ? "_result" : "_error");
 
             if (isInvoke)
             {
-                writer.WriteAmfItem(encoding, command.InvokeId);
+                writer.WriteAmfItem(ObjectEncoding.Amf0, command.InvokeId);
                 writer.WriteAmfItem(encoding, command.ConnectionParameters);
             }
 
-            if (isRequest)
+            if (isRequest||isResult)
             {
                 // write arguments
                 foreach (var arg in methodCall.Parameters)

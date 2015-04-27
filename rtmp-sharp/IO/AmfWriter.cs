@@ -706,7 +706,7 @@ namespace RtmpSharp.IO
 
             if (WriteAmf3ReferenceOnExistence(array))
                 return;
-
+            
             AddAmf3Reference(array);
             WriteAmf3InlineHeader(array.Length);
 
@@ -942,6 +942,17 @@ namespace RtmpSharp.IO
 
                 // <u27=trait-reference-index> <0=trait-reference> <1=object-inline>
                 WriteAmf3InlineHeader(existingDefinitionIndex << 1);
+            }
+            else if (obj is AsObject && !(obj as AsObject).IsTyped)
+            {
+                WriteByte(0x0B);
+                WriteByte(0x01);
+                foreach(var x in (obj as AsObject))
+                {
+                    WriteAmf3Utf(x.Key);
+                    WriteAmf3Item(x.Value);
+                }
+                WriteByte(0x01);
             }
             else
             {
