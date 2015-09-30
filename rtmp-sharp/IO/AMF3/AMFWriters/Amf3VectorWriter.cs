@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections;
-using System.Diagnostics;
 
 namespace RtmpSharp.IO.AMF3.AMFWriters
 {
