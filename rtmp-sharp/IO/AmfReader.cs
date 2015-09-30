@@ -102,8 +102,6 @@ namespace RtmpSharp.IO
 
 
 
-
-
         # region Helper methods
         public long Length { get { return underlying.BaseStream.Length; } }
         public long Position { get { return underlying.BaseStream.Position; } }

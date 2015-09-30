@@ -5,7 +5,7 @@ namespace RtmpSharp.Messaging.Messages
 {
     [Serializable]
     [SerializedName("flex.messaging.messages.ErrorMessage")]
-    class ErrorMessage : FlexMessage
+    public class ErrorMessage : FlexMessage
     {
         [SerializedName("faultCode")]
         public string FaultCode { get; set; }

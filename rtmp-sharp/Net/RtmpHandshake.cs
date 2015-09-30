@@ -50,6 +50,23 @@ namespace RtmpSharp.Net
             }
         }
 
+        public static RtmpHandshake Read(Stream stream, bool readVersion)
+        {
+            var size = HandshakeSize + (readVersion ? 1 : 0);
+            var buffer = StreamHelper.ReadBytes(stream, size);
+
+            using (var reader = new AmfReader(new MemoryStream(buffer), null))
+            {
+                return new RtmpHandshake()
+                {
+                    Version = readVersion ? reader.ReadByte() : default(byte),
+                    Time = reader.ReadUInt32(),
+                    Time2 = reader.ReadUInt32(),
+                    Random = reader.ReadBytes(HandshakeRandomSize)
+                };
+            }
+        }
+
         public static Task WriteAsync(Stream stream, RtmpHandshake h, bool writeVersion)
         {
             using (var memoryStream = new MemoryStream())

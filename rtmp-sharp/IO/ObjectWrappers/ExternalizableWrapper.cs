@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace RtmpSharp.IO.ObjectWrappers
 {
@@ -37,6 +38,9 @@ namespace RtmpSharp.IO.ObjectWrappers
 
             public override bool TryGetMember(string name, out IMemberWrapper memberWrapper)
             {
+                memberWrapper = null;
+                //return false;
+                Debugger.Break();
                 throw new NotSupportedException();
             }
         }

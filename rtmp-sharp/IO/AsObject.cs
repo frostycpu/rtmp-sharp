@@ -11,7 +11,7 @@ namespace RtmpSharp.IO
 {
     [Serializable]
     [TypeConverter(typeof(AsObjectConverter))]
-    public class AsObject : DynamicObject, IDictionary<string, object>
+    public class AsObject : DynamicObject, IDictionary<string, object>, IDynamicMetaObjectProvider
     {
         readonly Dictionary<string, object> underlying;
 

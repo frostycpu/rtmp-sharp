@@ -1,20 +1,19 @@
 ﻿using System;
+using RtmpSharp.Messaging.Messages;
 
 namespace RtmpSharp.Messaging
 {
     public class MessageReceivedEventArgs : EventArgs
     {
-        public readonly object Body;
         public readonly string ClientId;
         public readonly string Subtopic;
-        public object Result;
+        public readonly AsyncMessageExt Message;
 
-        internal MessageReceivedEventArgs(string clientId, string subtopic, object body)
+        internal MessageReceivedEventArgs(string clientId, string subtopic, AsyncMessageExt message)
         {
             ClientId = clientId;
             Subtopic = subtopic;
-            Body = body;
-            Result = body;
+            Message = message;
         }
     }
 }

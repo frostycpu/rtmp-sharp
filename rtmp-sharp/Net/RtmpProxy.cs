@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using RtmpSharp.IO;
 using RtmpSharp.Messaging;
@@ -14,179 +17,141 @@ namespace RtmpSharp.Net
 {
     public class RtmpProxy
     {
-        /*
-        public delegate object AsyncMessageHandler(object sender, MessageReceivedEventArgs args);
-        public delegate object AcknowledgeMessageHandler(object sender, RemotingMessageReceivedEventArgs args, object response);
-        public delegate InvocationException ErrorMessageHandler(object sender, RemotingMessageReceivedEventArgs args, InvocationException response);
 
-        private RtmpServer.ClientMessageHandler _srcMessageHandler;
-        private AcknowledgeMessageHandler _ackMessageHandler;
-        private AsyncMessageHandler _asyncMessageHandler;
-        private ErrorMessageHandler _errorMessageHandler;
+        public event EventHandler<RemotingMessageReceivedEventArgs> RemotingMessageReceived;
+        public event EventHandler<RemotingMessageReceivedEventArgs> ErrorMessageReceived;
+        public event EventHandler<CommandMessageReceivedEventArgs> CommandMessageReceived;
+        public event EventHandler<RemotingMessageReceivedEventArgs> AcknowledgeMessageReceived;
+        public event EventHandler<MessageReceivedEventArgs> AsyncMessageReceived;
+        public event EventHandler<EventArgs> Connected;
+        public event EventHandler<EventArgs> Disconnected;
 
-        public RtmpServer.ClientMessageHandler SourceMessageHandler { set { _srcMessageHandler = value; } }
-        public AsyncMessageHandler RemoteAsyncMessageHandler { set { _asyncMessageHandler = value; } }
-        public AcknowledgeMessageHandler RemoteAcknowledgeMessageHandler { set { _ackMessageHandler = value; } }
-        public ErrorMessageHandler RemoteErrorMessageHandler { set { _errorMessageHandler = value; } }
-         * */
-        public delegate void AsyncMessageReceivedHandler(object sender, MessageReceivedEventArgs args);
-        public delegate void MessageReceivedHandler(object sender, RemotingMessageReceivedEventArgs args);
-        public delegate void CommandMessageReceivedHandler(object sender, CommandMessageReceivedEventArgs args);
+        readonly RemoteCertificateValidationCallback certificateValidator = (sender, certificate, chain, errors) => true;
 
+        private X509Certificate2 _cert;
+        private SerializationContext _serializationContext;
+        private Uri _remoteUri;
+        private IPEndPoint _sourceEndpoint;
+        private TcpListener _listener;
 
-        public event AsyncMessageReceivedHandler AsyncMessageReceived;
-        public event MessageReceivedHandler RemotingMessageReceived;
-        public event MessageReceivedHandler AcknowledgeMessageReceived;
-        public event MessageReceivedHandler ErrorMessageReceived;
-        public event CommandMessageReceivedHandler ClientCommandReceived;
-
-        public event EventHandler<DisconnectedSite> Disconnected;
-        public event EventHandler Connected;
-
-        public List<string> SubscribedChannels { set; private get; }
-
-        private RtmpServer _source;
-        private RtmpClient _remote;
-
-        public RtmpProxy(IPEndPoint source, Uri remote, SerializationContext context) : this(source, remote, context, null) { }
-
-        public RtmpProxy(IPEndPoint source, Uri remote, SerializationContext context, X509Certificate2 cert)
+        private RtmpProxySource _source;
+        private RtmpProxyRemote _remote;
+        public RtmpProxy(IPEndPoint source, Uri remote, SerializationContext context, X509Certificate2 cert = null)
         {
-            SubscribedChannels = new List<string>();
-            _source = cert == null ? new RtmpServer(source, context) : new RtmpServer(source, context, cert);
-            _source.MaxConnections = 1;
-            _remote = new RtmpClient(remote, context, ObjectEncoding.Amf3);
+            //SubscribedChannels = new List<string>();
+            _cert = cert;
+            _serializationContext = context;
+            _remoteUri = remote;
+            _sourceEndpoint = source;
 
-            _source.ClientMessageReceived+=OnSourceMessageReceived;
-            _source.ClientCommandReceived+=OnSourceCommandReceived;
-            _source.ClientDisconnected += _source_ClientDisconnected;
-            _source.ClientConnected += _source_ClientConnected;
-            _remote.Disconnected += _remote_Disconnected;
-            _remote.MessageReceived += OnRemoteMessageReceived;
-        }
-
-        void _source_ClientConnected(object sender, EventArgs e)
-        {
-            _remote.ConnectAsync().Wait();
-            if (Connected != null) Connected(this, e);
-        }
-
-        void _source_ClientDisconnected(object sender, EventArgs e)
-        {
-            _remote.Close();
-            _remote = null;
-            if (Disconnected != null)
-                Disconnected(this, DisconnectedSite.Client);
-        }
-
-        void _remote_Disconnected(object sender, EventArgs e)
-        {
-            _source.Close();
-            if (Disconnected != null)
-                Disconnected(this, DisconnectedSite.Server);
-        }
-
-        internal void OnRemoteMessageReceived(object sender, MessageReceivedEventArgs e)
-        {
-            if (AsyncMessageReceived != null)
-                AsyncMessageReceived(this, e);
-                _source.InvokeReceive(e.ClientId, e.Subtopic, e.Result);
-        }
-
-
-        internal void OnSourceCommandReceived(object sender, CommandMessageReceivedEventArgs e)
-        {
-            if (ClientCommandReceived != null)
-                ClientCommandReceived(this, e);
-            if (!_remote.IsDisconnected)
-            {
-                switch (e.Message.Operation)
-                {
-                    case CommandOperation.Subscribe:
-                        bool success = _remote.SubscribeAsync(e.Endpoint, e.Message.Destination, e.Message.ClientId, e.Message.ClientId).Result;
-                        //if (success)
-                        {
-                            SubscribedChannels.Add(e.Message.ClientId);
-                            e.Result= new AcknowledgeMessageExt
-                            {
-                                Body = null,
-                                CorrelationId = e.Message.MessageId,
-                                MessageId = Uuid.NewUuid(),
-                                ClientId = e.Message.ClientId
-                            };
-                            return;
-                        }
-                    case CommandOperation.Login:
-                        success = _remote.LoginAsync(e.Message.Body as string).Result;
-                        //if (success)
-                        {
-                            e.Result = new AcknowledgeMessageExt
-                             {
-                                 Body = "success",
-                                 CorrelationId = e.Message.MessageId,
-                                 MessageId = Uuid.NewUuid(),
-                                 ClientId = Uuid.NewUuid(),
-                                 Headers = new AsObject
-                                    {
-                                        { "DSMessagingVersion", 1.0 },
-                                        { FlexMessageHeaders.FlexClientId, e.DSId }
-                                    }
-                             };
-                            return;
-                        }
-                    default: return;
-                }
-            }
-            else
-                Debugger.Break();
-        }
-
-        internal void OnSourceMessageReceived(object sender, RemotingMessageReceivedEventArgs e)
-        {
-            if (RemotingMessageReceived == null)
-                RemotingMessageReceived(this, e);
-            object ans;
-            RemotingMessageReceivedEventArgs args=null;
-            try
-            {
-                ans = _remote.InvokeAsync<object>("my-rtmps", e.Destination, e.Operation, e.Result).Result;
-            }
-            catch(AggregateException ex)
-            {
-                if (!(ex.InnerException is InvocationException))
-                {
-                    //something is not quite right here...
-                    Debugger.Break();
-                    throw;
-                }
-                ans = ex.InnerException;
-
-                args = new RemotingMessageReceivedEventArgs(e.Operation, e.Endpoint, e.Destination, e.MessageId, e.Body, e.InvokeId, ans);
-                if (ErrorMessageReceived != null)
-                    ErrorMessageReceived(this, args);
-                e.Result = args.Result;
-                return;
-            }
-            args = new RemotingMessageReceivedEventArgs(e.Operation, e.Endpoint, e.Destination, e.MessageId, e.Body, e.InvokeId, ans);
-            if (AcknowledgeMessageReceived != null)
-                AcknowledgeMessageReceived(this, args);
-            e.Result = args.Result;
-        }
-
-        public void SendAsyncMessage(string clientId, string subtopic, object body)
-        {
-            _source.InvokeReceive(clientId, subtopic, body);
+            _listener=new TcpListener(source);
         }
 
         public void Listen()
         {
-            _source.Listen();
+            _listener.Start();
+            _listener.BeginAcceptTcpClient(OnClientAccepted, _listener);
         }
 
-        public void Close()
+        private void OnClientAccepted(IAsyncResult ar)
+        {
+
+            TcpListener listener = ar.AsyncState as TcpListener;
+            try
+            {
+                TcpClient client = listener.EndAcceptTcpClient(ar);
+                if (!client.Connected)
+                    return;
+                var stream = GetRtmpStream(client);
+
+                _source = new RtmpProxySource(_serializationContext, stream);
+                _source.RemotingMessageReceived += OnRemotingMessageReceived;
+                _source.CommandMessageReceived += OnCommandMessageReceived;
+                _source.ConnectMessageReceived += OnConnectMessageReceived;
+                _source.Disconnected += OnClientDisconnected;
+                
+            }
+            catch (ObjectDisposedException)
+            {
+                //disconnect
+            }
+        }
+
+        private void OnServerDisconnected(object sender, EventArgs e)
+        {
+            _remote.Close();
+            _listener.Stop();
+            if (Disconnected != null)
+                Disconnected(this, new EventArgs());
+            Listen();
+        }
+
+        private void OnClientDisconnected(object sender, EventArgs e)
         {
             _source.Close();
-            _remote.Close();
+            _listener.Stop();
+            if(Disconnected!=null)
+                Disconnected(this, new EventArgs());
+            Listen();
+        }
+
+        private void OnConnectMessageReceived(object sender, ConnectMessageEventArgs e)
+        {
+            if (e.Message.Operation == CommandOperation.ClientPing)
+            {
+                _remote = new RtmpProxyRemote(_remoteUri, _serializationContext, ObjectEncoding.Amf3);
+                _remote.MessageReceived += OnAsyncMessageReceived;
+                _remote.Disconnected += OnServerDisconnected;
+                e.Result = _remote.ConnectAckAsync(e.InvokeId, e.ConnectionParameters, false, e.ClientId,e.AuthToken, e.Message).Result;
+                if (Connected != null)
+                    Connected(this, new EventArgs());
+            }
+            else
+            {
+                _remote = new RtmpProxyRemote(_remoteUri, _serializationContext, ObjectEncoding.Amf3);
+                _remote.MessageReceived += OnAsyncMessageReceived;
+                _remote.Disconnected += OnServerDisconnected;
+                e.Result = _remote.ReconnectAckAsync(e.InvokeId, e.ConnectionParameters, false, e.ClientId, e.AuthToken, e.Message).Result;
+                if (Connected != null)
+                    Connected(this, new EventArgs());
+            }
+        }
+
+        void OnAsyncMessageReceived(object sender, MessageReceivedEventArgs e)
+        {
+            if (AsyncMessageReceived != null)
+                AsyncMessageReceived(this, e);
+            _source.InvokeReceive(e.ClientId, e.Subtopic, e.Message.Body);
+        }
+
+        private void OnCommandMessageReceived(object sender, CommandMessageReceivedEventArgs e)
+        {
+            e.Result = _remote.InvokeAckAsync(e.InvokeId, null, e.Message).Result;
+        }
+
+        private void OnRemotingMessageReceived(object sender, RemotingMessageReceivedEventArgs e)
+        {
+            try
+            {
+                if (RemotingMessageReceived != null)
+                    RemotingMessageReceived(this, e);
+                e.Result = _remote.InvokeAckAsync(e.InvokeId, e.Message).Result;
+                //TODO it's probably better to copy the eventargs
+                if (AcknowledgeMessageReceived != null)
+                    AcknowledgeMessageReceived(this, e);
+            }
+            catch (AggregateException ex)
+            {
+                var exception = ex.InnerException as InvocationException;
+                if (exception != null)
+                {
+                    e.Error = (ErrorMessage) exception.SourceException;
+                    if (ErrorMessageReceived != null)
+                        ErrorMessageReceived(this, e);
+                }
+                else 
+                    throw;
+            }
         }
 
         public async Task<object> InvokeAsync(string destination, string operation, params object[] arguments)
@@ -194,12 +159,16 @@ namespace RtmpSharp.Net
             return await _remote.InvokeAsync<object>("my-rtmps", destination, operation, arguments);
         }
 
-
-    }
-
-    public enum DisconnectedSite
-    {
-        Client,
-        Server,
+        Stream GetRtmpStream(TcpClient client)
+        {
+            var stream = client.GetStream();
+            if ( _cert != null)
+            {
+                var ssl = new SslStream(stream, false, certificateValidator);
+                ssl.AuthenticateAsServer(_cert);
+                return ssl;
+            }
+            return stream;
+        }
     }
 }

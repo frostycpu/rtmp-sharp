@@ -10,25 +10,19 @@ namespace RtmpSharp.Messaging
         public readonly string Destination;
         public readonly string Endpoint;
         public readonly string MessageId;
-        public readonly object Body;
         public readonly int InvokeId;
-        public readonly object Response;
-        public object Result;
+        public readonly RemotingMessage Message;
+        public AcknowledgeMessageExt Result;
+        public ErrorMessage Error;
 
-        internal RemotingMessageReceivedEventArgs(string operation, string endpoint, string destination, string messageId, object body, int invokeId)
+        internal RemotingMessageReceivedEventArgs(RemotingMessage message , string endpoint, string clientId, int invokeId)
         {
-            Operation = operation;
-            Destination = destination;
+            Message = message;
+            Operation = message.Operation;
+            Destination = message.Destination;
             Endpoint = endpoint;
-            MessageId = messageId;
-            Body = body;
+            MessageId = clientId;
             InvokeId = invokeId;
-            Result = body;
-        }
-        internal RemotingMessageReceivedEventArgs(string operation, string endpoint, string destination, string messageId, object body, int invokeId, object response):this(operation,endpoint,destination,messageId,body,invokeId)
-        {
-            Response = response;
-            Result = response;
         }
     }
 }

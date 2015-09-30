@@ -19,7 +19,7 @@ using System.Runtime.CompilerServices;
 
 namespace RtmpSharp.Net
 {
-    public class RtmpClient
+    public class RtmpProxyRemote
     {
         public event EventHandler Disconnected;
         public event EventHandler<MessageReceivedEventArgs> MessageReceived;
@@ -54,7 +54,7 @@ namespace RtmpSharp.Net
 
         string reconnectData;
 
-        public RtmpClient(Uri uri, SerializationContext serializationContext)
+        public RtmpProxyRemote(Uri uri, SerializationContext serializationContext)
         {
             if (uri == null) throw new ArgumentNullException("uri");
             if (serializationContext == null) throw new ArgumentNullException("serializationContext");
@@ -68,12 +68,13 @@ namespace RtmpSharp.Net
             callbackManager = new TaskCallbackManager<int, AcknowledgeMessageExt>();
         }
 
-        public RtmpClient(Uri uri, SerializationContext serializationContext, ObjectEncoding objectEncoding) : this(uri, serializationContext)
+        public RtmpProxyRemote(Uri uri, SerializationContext serializationContext, ObjectEncoding objectEncoding)
+            : this(uri, serializationContext)
         {
             this.objectEncoding = objectEncoding;
         }
 
-        public RtmpClient(Uri uri, ObjectEncoding objectEncoding, SerializationContext serializationContext, RemoteCertificateValidationCallback certificateValidator)
+        public RtmpProxyRemote(Uri uri, ObjectEncoding objectEncoding, SerializationContext serializationContext, RemoteCertificateValidationCallback certificateValidator)
             : this(uri, serializationContext, objectEncoding)
         {
             if (certificateValidator == null) throw new ArgumentNullException("certificateValidator");
@@ -91,7 +92,7 @@ namespace RtmpSharp.Net
             return task;
         }
 
-        public async Task<AsObject> ConnectAsync()
+        public async Task<AsObject> ConnectAsync(int invokeId, AsObject cParameters, params object[] parameters)
         {
             var client = CreateTcpClient();
             client.NoDelay = NoDelay;
@@ -137,7 +138,7 @@ namespace RtmpSharp.Net
             EstablishThreads(stream);
 
             // call `connect`
-            var connectResult = await ConnectInvokeAsync(null, null, uri.ToString());
+            var connectResult = await ConnectInvokeAsync(invokeId, cParameters, parameters);
             object cId;
 
             if (connectResult.TryGetValue("clientId", out cId))
@@ -149,12 +150,12 @@ namespace RtmpSharp.Net
             return connectResult;
         }
 
-        public async Task<AcknowledgeMessageExt> ConnectAckAsync()
+        public async Task<AcknowledgeMessageExt> ConnectAckAsync(int invokeId, AsObject cParameters, params object[] parameters)
         {
-            return new AcknowledgeMessageExt {Body = await ConnectAsync()};
+            return new AcknowledgeMessageExt {Body = await ConnectAsync(invokeId, cParameters, parameters)};
         }
 
-        public async Task<AsObject> ReconnectAsync()
+        public async Task<AsObject> ReconnectAsync(int invokeId, AsObject cParameters, params object[] parameters)
         {
             var client = CreateTcpClient();
             client.NoDelay = NoDelay;
@@ -199,15 +200,15 @@ namespace RtmpSharp.Net
 
             EstablishThreads(stream);
 
-            var connectResult = await ReconnectInvokeAsync(null, null, uri.ToString());
+            var connectResult = await ConnectInvokeAsync(invokeId, cParameters, parameters);
             hasConnected = true;
             IsDisconnected = false;
             return connectResult;
         }
 
-        public async Task<AcknowledgeMessageExt> ReconnectAckAsync()
+        public async Task<AcknowledgeMessageExt> ReconnectAckAsync(int invokeId, AsObject cParameters, params object[] parameters)
         {
-            return new AcknowledgeMessageExt { Body = await ReconnectAsync() };
+            return new AcknowledgeMessageExt { Body = await ReconnectAsync(invokeId, cParameters, parameters) };
         }
 
         public void EstablishThreads(Stream stream)
@@ -237,7 +238,7 @@ namespace RtmpSharp.Net
             return new TcpClient(LocalEndPoint);
         }
 
-        protected virtual async Task<Stream> GetRtmpStreamAsync(TcpClient client)
+        protected async Task<Stream> GetRtmpStreamAsync(TcpClient client)
         {
             var stream = client.GetStream();
             switch (uri.Scheme)
@@ -361,38 +362,22 @@ namespace RtmpSharp.Net
             }
         }
         
-        public Task<T> InvokeAsync<T>(string method, object argument)
-        {
-            return InvokeAsync<T>(method, new[] { argument });
-        }
 
-        public async Task<T> InvokeAsync<T>(string method, object[] arguments)
+
+        async Task<AsObject> ConnectInvokeAsync(int invokeId, AsObject connectionParameters, params object[] parameters)
         {
-            var invoke = new InvokeAmf0
+            var connect = new InvokeAmf0
             {
-                MethodCall = new Method(method, arguments),
-                InvokeId = GetNextInvokeId()
+                MethodCall = new Method("connect", parameters),
+                ConnectionParameters = connectionParameters,
+                InvokeId = invokeId
+
             };
-            var result = await QueueCommandAsTask(invoke, 3, 0);
-            return (T)MiniTypeConverter.ConvertTo(result.Body, typeof(T));
+
+            var result= (AsObject)(await QueueCommandAsTask(connect, 3, 0, requireConnected: false)).Body;
+            return result;
         }
 
-        public Task<T> InvokeAsync<T>(string endpoint, string destination, string method, object argument)
-        {
-            return InvokeAsync<T>(endpoint, destination, method, argument is object[] ? argument as object[] : new[] { argument });
-        }
-        
-        internal async Task<T> InvokeAsync<T>(RemotingMessage message)
-        {
-
-            var invoke = new InvokeAmf3()
-            {
-                InvokeId = GetNextInvokeId(),
-                MethodCall = new Method(null, new object[] { message })
-            };
-            var result = await QueueCommandAsTask(invoke, 3, 0);
-            return (T)MiniTypeConverter.ConvertTo(result.Body, typeof(T));
-        }
 
         public async Task<T> InvokeAsync<T>(string endpoint, string destination, string method, object[] arguments)
         {
@@ -415,176 +400,12 @@ namespace RtmpSharp.Net
 
             var invoke = new InvokeAmf3()
             {
-                InvokeId = GetNextInvokeId(),
+
+                InvokeId = GetNextInvokeId()+int.MaxValue/4,
                 MethodCall = new Method(null, new object[] { remotingMessage })
             };
             var result = await QueueCommandAsTask(invoke, 3, 0);
             return (T)MiniTypeConverter.ConvertTo(result.Body, typeof(T));
-        }
-
-        async Task<AsObject> ConnectInvokeAsync(string pageUrl, string swfUrl, string tcUrl)
-        {
-            var connect = new InvokeAmf0
-            {
-                MethodCall = new Method("connect", new object[]{false,"nil","",new CommandMessage
-                    { 
-                        Operation=(CommandOperation)5,
-                        CorrelationId="",
-                        MessageId=Uuid.NewUuid(),
-                        Destination="",
-                        Headers = new AsObject
-                        {
-                            { FlexMessageHeaders.FlexMessagingVersion, 1.0 },
-                            { FlexMessageHeaders.FlexClientId, "my-rtmps" },
-                        }
-                    }}),
-                ConnectionParameters =
-                    new AsObject
-                    {
-                        { "pageUrl",           pageUrl                },
-                        { "objectEncoding",    (double)objectEncoding },
-                        { "capabilities",      239.0                  },
-                        { "audioCodecs",       3575.0                 },
-                        { "flashVer",          "WIN 11,7,700,169"     },
-                        { "swfUrl",            swfUrl                 },
-                        { "videoFunction",     1.0                    },
-                        { "fpad",              false                  },
-                        { "videoCodecs",       252.0                  },
-                        { "tcUrl",             tcUrl                  },
-                        { "app",               ""                     }
-                    },
-                InvokeId = GetNextInvokeId()
-
-            };
-
-            var result= (AsObject)(await QueueCommandAsTask(connect, 3, 0, requireConnected: false)).Body;
-            return result;
-        }
-
-        async Task<AsObject> ReconnectInvokeAsync(string pageUrl, string swfUrl, string tcUrl)
-        {
-            var connect = new InvokeAmf0
-            {
-                MethodCall = new Method("connect", new object[]{false,ClientId,reconnectData,new CommandMessage
-                    { 
-                        Operation=(CommandOperation)8,
-                        CorrelationId="",
-                        MessageId=Uuid.NewUuid(),
-                        Destination="",
-                        Body = reconnectData,
-                        Headers = new AsObject
-                        {
-                            { FlexMessageHeaders.FlexMessagingVersion, 1.0 },
-                            { FlexMessageHeaders.FlexClientId, "my-rtmps" },
-                        }
-                    }}),
-                ConnectionParameters =
-                    new AsObject
-                    {
-                        { "pageUrl",           pageUrl                },
-                        { "objectEncoding",    (double)objectEncoding },
-                        { "capabilities",      239.0                  },
-                        { "audioCodecs",       3575.0                 },
-                        { "flashVer",          "WIN 11,7,700,169"     },
-                        { "swfUrl",            swfUrl                 },
-                        { "videoFunction",     1.0                    },
-                        { "fpad",              false                  },
-                        { "videoCodecs",       252.0                  },
-                        { "tcUrl",             tcUrl                  },
-                        { "app",               ""                     }
-                    },
-                InvokeId = GetNextInvokeId()
-
-            };
-
-            return (AsObject)(await QueueCommandAsTask(connect, 3, 0, requireConnected: false)).Body;
-        }
-
-        public async Task<bool> SubscribeAsync(string endpoint, string destination, string subtopic, string clientId)
-        {
-            var message = new CommandMessage
-            {
-                ClientId = clientId,
-                CorrelationId = null,
-                Operation = CommandOperation.Subscribe,
-                Destination = destination,
-                Headers = new AsObject
-                {
-                    { FlexMessageHeaders.Endpoint, endpoint },
-                    { FlexMessageHeaders.FlexClientId, clientId },
-                    { AsyncMessageHeaders.Subtopic, subtopic }
-                }
-            };
-            return await InvokeAsync<string>(null, message) == "success";
-        }
-
-        public async Task<bool> UnsubscribeAsync(string endpoint, string destination, string subtopic, string clientId)
-        {
-            var message = new CommandMessage
-            {
-                ClientId = clientId,
-                CorrelationId = null,
-                Operation = CommandOperation.Unsubscribe,
-                Destination = destination,
-                Headers = new AsObject
-                {
-                    { FlexMessageHeaders.Endpoint, endpoint },
-                    { FlexMessageHeaders.FlexClientId, clientId },
-                    { AsyncMessageHeaders.Subtopic, subtopic }
-                }
-            };
-            return await InvokeAsync<string>(null, message) == "success";
-        }
-
-        public async Task<bool> LoginAsync(string username, string password)
-        {
-            var message = new CommandMessage
-            {
-                ClientId = ClientId,
-                Destination = string.Empty, // destination must not be null to work on some servers
-                Operation = CommandOperation.Login,
-                Body = reconnectData = Convert.ToBase64String(Encoding.UTF8.GetBytes(string.Format("{0}:{1}", username, password))),
-            };
-            return await InvokeAsync<string>(null, message) == "success";
-        }
-
-        public async Task<bool> LoginAsync(string base64)
-        {
-            var message = new CommandMessage
-            {
-                ClientId = ClientId,
-                Destination = string.Empty, // destination must not be null to work on some servers
-                Operation = CommandOperation.Login,
-                Body = base64,
-            };
-            return await InvokeAsync<string>(null, message) == "success";
-        }
-
-        public Task LogoutAsync()
-        {
-            var message = new CommandMessage
-            {
-                ClientId = ClientId,
-                Destination = string.Empty,
-                Operation = CommandOperation.Logout
-            };
-            return InvokeAsync<object>(null, message);
-        }
-
-        public void SetChunkSize(int size)
-        {
-            WriteProtocolControlMessage(new ChunkSize(size));
-        }
-
-        public Task PingAsync()
-        {
-            var message = new CommandMessage
-            {
-                ClientId = ClientId,
-                Destination = string.Empty,
-                Operation = CommandOperation.ClientPing
-            };
-            return InvokeAsync<object>(null, message);
         }
 
         #region PROXY

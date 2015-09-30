@@ -118,6 +118,7 @@
     <Compile Include="Messaging\Events\PeerBandwidth.cs" />
     <Compile Include="Messaging\Events\UserControlMessage.cs" />
     <Compile Include="Messaging\Events\WindowAcknowledgementSize.cs" />
+    <Compile Include="Messaging\ConnectMessageEventArgs.cs" />
     <Compile Include="Messaging\InvocationException.cs" />
     <Compile Include="Messaging\MessageReceivedEventArgs.cs" />
     <Compile Include="Messaging\Messages\AcknowledgeMessage.cs" />
@@ -134,6 +135,7 @@
     <Compile Include="Net\ClientDisconnectedException.cs" />
     <Compile Include="Net\EventReceivedEventArgs.cs" />
     <Compile Include="Net\MessageType.cs" />
+    <Compile Include="Net\RtmpProxyRemote.cs" />
     <Compile Include="Net\RtmpClient.cs" />
     <Compile Include="Net\RtmpHandshake.cs" />
     <Compile Include="Net\RtmpHeader.cs" />
@@ -141,7 +143,7 @@
     <Compile Include="Net\RtmpPacketReader.cs" />
     <Compile Include="Net\RtmpPacketWriter.cs" />
     <Compile Include="Net\RtmpProxy.cs" />
-    <Compile Include="Net\RtmpServer.cs" />
+    <Compile Include="Net\RtmpProxySource.cs" />
     <Compile Include="Net\StatusAsObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtmpSharp.cs" />
