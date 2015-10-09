@@ -53,6 +53,11 @@ namespace RtmpSharp.Net
             _listener.BeginAcceptTcpClient(OnClientAccepted, _listener);
         }
 
+        public void Close()
+        {
+            _listener.Stop();
+        }
+
         private void OnClientAccepted(IAsyncResult ar)
         {
 
