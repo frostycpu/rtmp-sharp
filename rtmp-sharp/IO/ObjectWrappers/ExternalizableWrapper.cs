@@ -28,16 +28,11 @@ namespace RtmpSharp.IO.ObjectWrappers
             return new ExternalizableClassDescription(typeName, new IMemberWrapper[] { }, true, false);
         }
 
-        class ExternalizableClassDescription : ClassDescription
+        class ExternalizableClassDescription : BasicObjectWrapper.BasicObjectClassDescription
         {
             internal ExternalizableClassDescription(string name, IMemberWrapper[] members, bool externalizable, bool dynamic)
                 : base(name, members, externalizable, dynamic)
             {
-            }
-
-            public override bool TryGetMember(string name, out IMemberWrapper memberWrapper)
-            {
-                throw new NotSupportedException();
             }
         }
     }

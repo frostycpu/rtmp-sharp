@@ -22,6 +22,10 @@ namespace RtmpSharp.IO
 
         static MiniTypeConverter()
         {
+            TypeDescriptor.AddAttributes(typeof(string), new TypeConverterAttribute(typeof(RtmpSharp.IO.TypeConverters.StringConverter)));
+            TypeDescriptor.AddAttributes(typeof(DateTime), new TypeConverterAttribute(typeof(RtmpSharp.IO.TypeConverters.DateConverter)));
+            TypeDescriptor.AddAttributes(typeof(double), new TypeConverterAttribute(typeof(RtmpSharp.IO.TypeConverters.DoubleConverter)));
+            TypeDescriptor.AddAttributes(typeof(int), new TypeConverterAttribute(typeof(RtmpSharp.IO.TypeConverters.Int32Converter)));
         }
 
         public static object ConvertTo(object value, Type targetType)

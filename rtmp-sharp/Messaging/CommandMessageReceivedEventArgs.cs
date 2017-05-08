@@ -10,12 +10,12 @@ namespace RtmpSharp.Messaging
         public readonly CommandOperation Operation;
         public readonly string Endpoint;
         public readonly int InvokeId;
-        public AcknowledgeMessageExt Result;
+        public AcknowledgeMessage Result;
 
         internal CommandMessageReceivedEventArgs(CommandMessage message, string endpoint, string dsId, int invokeId)
         {
             DSId = dsId;
-            Operation = message.Operation;
+            Operation = message?.Operation??CommandOperation.ClientPing;
             Endpoint = endpoint;
             Message = message;
             InvokeId = invokeId;

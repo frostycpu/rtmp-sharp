@@ -102,7 +102,7 @@ namespace RtmpSharp.Net
 
         private void OnConnectMessageReceived(object sender, ConnectMessageEventArgs e)
         {
-            if (e.Message.Operation == CommandOperation.ClientPing)
+            if (e.Message==null||e.Message.Operation == CommandOperation.ClientPing)
             {
                 _remote = new RtmpProxyRemote(_remoteUri, _serializationContext, ObjectEncoding.Amf3);
                 _remote.MessageReceived += OnAsyncMessageReceived;
@@ -126,7 +126,8 @@ namespace RtmpSharp.Net
         {
             if (AsyncMessageReceived != null)
                 AsyncMessageReceived(this, e);
-            _source.InvokeReceive(e.ClientId, e.Subtopic, e.Message.Body);
+            //_source.InvokeReceive(e.ClientId, e.Subtopic, e.Message.Body);
+            _source.InvokeReceive(e.Message);
         }
 
         private void OnCommandMessageReceived(object sender, CommandMessageReceivedEventArgs e)

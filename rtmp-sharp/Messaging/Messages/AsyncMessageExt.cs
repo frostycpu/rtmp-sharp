@@ -10,13 +10,13 @@ using RtmpSharp.IO.AMF3;
 namespace RtmpSharp.Messaging.Messages
 {
     [Serializable]
-    [SerializedName("DSA")]
+    //[SerializedName("DSA")]
     //[SerializedName("flex.messaging.messages.AsyncMessageExt", Canonical = false)]
     public class AsyncMessageExt : AsyncMessage, IExternalizable
     {
         public AsyncMessageExt()
         {
-            Timestamp = (long)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+            Timestamp = new DateTime(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).Ticks).Ticks;
         }
 
         [SerializedName("correlationIdBytes")]

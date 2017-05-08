@@ -38,7 +38,7 @@ namespace RtmpSharp.Net
         // by default, accept all certificates
         readonly Uri uri;
         readonly ObjectEncoding objectEncoding;
-        readonly TaskCallbackManager<int, AcknowledgeMessageExt> callbackManager;
+        readonly TaskCallbackManager<int, AcknowledgeMessage> callbackManager;
         readonly SerializationContext serializationContext;
         readonly RemoteCertificateValidationCallback certificateValidator = (sender, certificate, chain, errors) => true;
         RtmpPacketWriter writer;
@@ -65,7 +65,7 @@ namespace RtmpSharp.Net
 
             this.uri = uri;
             this.serializationContext = serializationContext;
-            callbackManager = new TaskCallbackManager<int, AcknowledgeMessageExt>();
+            callbackManager = new TaskCallbackManager<int, AcknowledgeMessage>();
         }
 
         public RtmpProxyRemote(Uri uri, SerializationContext serializationContext, ObjectEncoding objectEncoding)
@@ -82,7 +82,7 @@ namespace RtmpSharp.Net
             this.certificateValidator = certificateValidator;
         }
         
-        Task<AcknowledgeMessageExt> QueueCommandAsTask(Command command, int streamId, int messageStreamId, bool requireConnected = true)
+        Task<AcknowledgeMessage> QueueCommandAsTask(Command command, int streamId, int messageStreamId, bool requireConnected = true)
         {
             if (requireConnected && IsDisconnected)
                 return CreateExceptedTask(new ClientDisconnectedException("disconnected"));
@@ -150,9 +150,9 @@ namespace RtmpSharp.Net
             return connectResult;
         }
 
-        public async Task<AcknowledgeMessageExt> ConnectAckAsync(int invokeId, AsObject cParameters, params object[] parameters)
+        public async Task<AcknowledgeMessage> ConnectAckAsync(int invokeId, AsObject cParameters, params object[] parameters)
         {
-            return new AcknowledgeMessageExt {Body = await ConnectAsync(invokeId, cParameters, parameters)};
+            return new AcknowledgeMessage { Body = await ConnectAsync(invokeId, cParameters, parameters)};
         }
 
         public async Task<AsObject> ReconnectAsync(int invokeId, AsObject cParameters, params object[] parameters)
@@ -206,9 +206,9 @@ namespace RtmpSharp.Net
             return connectResult;
         }
 
-        public async Task<AcknowledgeMessageExt> ReconnectAckAsync(int invokeId, AsObject cParameters, params object[] parameters)
+        public async Task<AcknowledgeMessage> ReconnectAckAsync(int invokeId, AsObject cParameters, params object[] parameters)
         {
-            return new AcknowledgeMessageExt { Body = await ReconnectAsync(invokeId, cParameters, parameters) };
+            return new AcknowledgeMessage { Body = await ReconnectAsync(invokeId, cParameters, parameters) };
         }
 
         public void EstablishThreads(Stream stream)
@@ -307,16 +307,21 @@ namespace RtmpSharp.Net
                         var call = command.MethodCall;
 
                         var param = call.Parameters.Length == 1 ? call.Parameters[0] : call.Parameters;
-                        if (call.Name == "_result" && !(param is AcknowledgeMessageExt))
+                        if (call.Name == "_result" && !(param is AcknowledgeMessageExt) && !(param is AcknowledgeMessage))
                         {
                             //wrap the parameter
-                            var ack = new AcknowledgeMessageExt{Body=param};
+                            var ack = new AcknowledgeMessage { Body=param};
+                            callbackManager.SetResult(command.InvokeId, ack);
+                        }
+                        else if (call.Name == "_result" && (param is AcknowledgeMessage))
+                        {
+                            var ack = (AcknowledgeMessage)param;
                             callbackManager.SetResult(command.InvokeId, ack);
                         }
                         else if (call.Name == "_result")
                         {
-                            var ack = (AcknowledgeMessageExt) param;
-                            callbackManager.SetResult(command.InvokeId, ack);
+                            var ack = (AcknowledgeMessageExt)param;
+                            //callbackManager.SetResult(command.InvokeId, ack);
                         }
                         else if (call.Name == "_error")
                         {
@@ -326,7 +331,7 @@ namespace RtmpSharp.Net
                         }
                         else if (call.Name == "receive")
                         {
-                            var message = (AsyncMessageExt) param;
+                            var message = (AsyncMessage) param;
                             if (message == null)
                                 break;
 
@@ -410,7 +415,7 @@ namespace RtmpSharp.Net
 
         #region PROXY
 
-        public async Task<AcknowledgeMessageExt> InvokeAckAsync(int invokeId, string method, CommandMessage arg)
+        public async Task<AcknowledgeMessage> InvokeAckAsync(int invokeId, string method, CommandMessage arg)
         {
             //TODO: this is very bad
             //this.invokeId = invokeId;
@@ -424,7 +429,7 @@ namespace RtmpSharp.Net
             
         }
 
-        internal async Task<AcknowledgeMessageExt> InvokeAckAsync(int invokeId, RemotingMessage message)
+        internal async Task<AcknowledgeMessage> InvokeAckAsync(int invokeId, RemotingMessage message)
         {
             //TODO: this is very bad
             //this.invokeId = invokeId;
@@ -438,7 +443,7 @@ namespace RtmpSharp.Net
         }
 
 
-        async Task<AcknowledgeMessageExt> ConnectInvokeAckAsync(string pageUrl, string swfUrl, string tcUrl)
+        async Task<AcknowledgeMessage> ConnectInvokeAckAsync(string pageUrl, string swfUrl, string tcUrl)
         {
             var connect = new InvokeAmf0
             {
@@ -476,7 +481,7 @@ namespace RtmpSharp.Net
             return await QueueCommandAsTask(connect, 3, 0, requireConnected: false);
         }
 
-        async Task<AcknowledgeMessageExt> ReconnectInvokeAckAsync(string pageUrl, string swfUrl, string tcUrl)
+        async Task<AcknowledgeMessage> ReconnectInvokeAckAsync(string pageUrl, string swfUrl, string tcUrl)
         {
             var connect = new InvokeAmf0
             {
@@ -515,7 +520,7 @@ namespace RtmpSharp.Net
             return await QueueCommandAsTask(connect, 3, 0, requireConnected: false);
         }
 
-        public async Task<AcknowledgeMessageExt> SubscribeAckAsync(int invokeId, string endpoint, string destination, string subtopic, string clientId)
+        public async Task<AcknowledgeMessage> SubscribeAckAsync(int invokeId, string endpoint, string destination, string subtopic, string clientId)
         {
             var message = new CommandMessage
             {
@@ -533,7 +538,7 @@ namespace RtmpSharp.Net
             return await InvokeAckAsync(invokeId, null, message);
         }
 
-        public async Task<AcknowledgeMessageExt> UnsubscribeAckAsync(int invokeId, string endpoint, string destination, string subtopic, string clientId)
+        public async Task<AcknowledgeMessage> UnsubscribeAckAsync(int invokeId, string endpoint, string destination, string subtopic, string clientId)
         {
             var message = new CommandMessage
             {
@@ -551,7 +556,7 @@ namespace RtmpSharp.Net
             return await InvokeAckAsync(invokeId, null, message);
         }
 
-        public async Task<AcknowledgeMessageExt> LoginAckAsync(int invokeId, string username, string password)
+        public async Task<AcknowledgeMessage> LoginAckAsync(int invokeId, string username, string password)
         {
             var message = new CommandMessage
             {
@@ -563,7 +568,7 @@ namespace RtmpSharp.Net
             return await InvokeAckAsync(invokeId, null, message);
         }
 
-        public async Task<AcknowledgeMessageExt> LoginAckAsync(int invokeId, string base64)
+        public async Task<AcknowledgeMessage> LoginAckAsync(int invokeId, string base64)
         {
             var message = new CommandMessage
             {
@@ -633,9 +638,9 @@ namespace RtmpSharp.Net
             }
         }
 
-        static Task<AcknowledgeMessageExt> CreateExceptedTask(Exception exception)
+        static Task<AcknowledgeMessage> CreateExceptedTask(Exception exception)
         {
-            var source = new TaskCompletionSource<AcknowledgeMessageExt>();
+            var source = new TaskCompletionSource<AcknowledgeMessage>();
             source.SetException(exception);
             return source.Task;
         }

@@ -7,9 +7,9 @@ namespace RtmpSharp.Messaging
     {
         public readonly string ClientId;
         public readonly string Subtopic;
-        public readonly AsyncMessageExt Message;
+        public readonly AsyncMessage Message;
 
-        internal MessageReceivedEventArgs(string clientId, string subtopic, AsyncMessageExt message)
+        internal MessageReceivedEventArgs(string clientId, string subtopic, AsyncMessage message)
         {
             ClientId = clientId;
             Subtopic = subtopic;

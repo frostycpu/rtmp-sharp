@@ -325,7 +325,7 @@ namespace RtmpSharp.Net
                         }
                         else if (call.Name == "receive")
                         {
-                            var message = (AsyncMessageExt) param;
+                            var message = (AsyncMessage) param;
                             if (message == null)
                                 break;
 

@@ -79,7 +79,7 @@ namespace RtmpSharp.IO.ObjectWrappers
             return new BasicObjectClassDescription(typeName, classMembers.Cast<IMemberWrapper>().ToArray(), GetIsExternalizable(obj), GetIsDynamic(obj));
         }
 
-        class BasicObjectClassDescription : ClassDescription
+        public class BasicObjectClassDescription : ClassDescription
         {
             // Because we are cached by the `BasicObjectWrapper`, speed up lookups so that read deserialisation is (slightly) faster.
             public Dictionary<string, IMemberWrapper> MemberLookup { get; private set; }

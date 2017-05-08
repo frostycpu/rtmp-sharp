@@ -17,7 +17,7 @@ namespace RtmpSharp.Messaging.Messages
         public string MessageId { get; set; }
 
         [SerializedName("timestamp")]
-        public long Timestamp { get; set; }
+        public DateTime Timestamp { get; set; }
 
         // TTL (in milliseconds) that message is valid for after `Timestamp`
         [SerializedName("timeToLive")]

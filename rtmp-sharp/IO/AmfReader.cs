@@ -269,6 +269,7 @@ namespace RtmpSharp.IO
             {
                 case DeserializationStrategy.TypedObject:
                     var instance = SerializationContext.Create(typeName);
+                    AddAmf0ObjectReference(instance);
                     var classDescription = SerializationContext.GetClassDescription(instance);
                     var pairs = ReadAmf0Pairs();
                     foreach (var pair in pairs)

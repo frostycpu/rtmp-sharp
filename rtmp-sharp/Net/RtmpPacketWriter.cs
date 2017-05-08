@@ -294,7 +294,11 @@ namespace RtmpSharp.Net
 
             if (isInvoke)
             {
-                writer.WriteAmfItem(ObjectEncoding.Amf0, command.InvokeId);
+                if(methodCall.Name=="receive"&&command.InvokeId==0)
+                    writer.WriteAmfItem(ObjectEncoding.Amf0, null);
+                else
+                    writer.WriteAmfItem(ObjectEncoding.Amf0, command.InvokeId);
+
                 writer.WriteAmfItem(encoding, command.ConnectionParameters);
             }
 

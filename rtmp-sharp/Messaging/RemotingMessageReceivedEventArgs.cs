@@ -12,7 +12,7 @@ namespace RtmpSharp.Messaging
         public readonly string MessageId;
         public readonly int InvokeId;
         public readonly RemotingMessage Message;
-        public AcknowledgeMessageExt Result;
+        public AcknowledgeMessage Result;
         public ErrorMessage Error;
 
         internal RemotingMessageReceivedEventArgs(RemotingMessage message , string endpoint, string clientId, int invokeId)

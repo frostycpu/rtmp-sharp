@@ -81,16 +81,20 @@ namespace RtmpSharp.Net
             var s01 = new RtmpHandshake()
             {
                 Version = 3,
-                Time = (uint) Environment.TickCount,
+                Time = c01.Time+1,
                 Time2 = 0,
                 Random = randomBytes
             };
-            var s02 = s01.Clone();
-            s02.Time2 = (uint) Environment.TickCount;
-            RtmpHandshake.WriteAsync(stream, s01, s02, true);
+            RtmpHandshake.WriteAsync(stream, s01, true);
 
             // read c02
             var c02 = RtmpHandshake.Read(stream, false);
+
+            var s02 = c01.Clone();
+            s02.Time2 = (uint)Environment.TickCount;
+            RtmpHandshake.WriteAsync(stream, s02, false);
+
+
             hasConnected = true;
         }
 
@@ -186,7 +190,7 @@ namespace RtmpSharp.Net
                         {
                             System.Diagnostics.Debug.Print("Received status.");
                         }
-                        else if (call.Name == "connect")
+                        else if (call.Name == "connect" && call.Parameters.Length >= 4)
                         {
                             var message = (CommandMessage)call.Parameters[3];
                             object endpoint;
@@ -195,13 +199,21 @@ namespace RtmpSharp.Net
                             message.Headers.TryGetValue(AsyncMessageHeaders.ID, out id);
                             //ClientId = (string) id;
 
-                            var args = new ConnectMessageEventArgs((string) call.Parameters[1], (string) call.Parameters[2], message, (string) endpoint, (string) id, command.InvokeId, (AsObject)command.ConnectionParameters);
-                            if(ConnectMessageReceived!=null)
+                            var args = new ConnectMessageEventArgs((string)call.Parameters[1], (string)call.Parameters[2], message, (string)endpoint, (string)id, command.InvokeId, (AsObject)command.ConnectionParameters);
+                            if (ConnectMessageReceived != null)
                                 ConnectMessageReceived(this, args);
-                            if(message.Operation==CommandOperation.ClientPing)
+                            if (message.Operation == CommandOperation.ClientPing)
                                 await InvokeConnectResultAsync(command.InvokeId, (AsObject)args.Result.Body);
                             else
                                 await InvokeReconnectResultInvokeAsync(command.InvokeId, (AsObject)args.Result.Body);
+                        }
+                        else if (call.Name == "connect")
+                        {
+
+                            var args = new ConnectMessageEventArgs(null,null,null,null,null, command.InvokeId, (AsObject)command.ConnectionParameters);
+                            if (ConnectMessageReceived != null)
+                                ConnectMessageReceived(this, args);
+                            await InvokeConnectResultAsync(command.InvokeId, (AsObject)args.Result.Body);
                         }
                         else if (param is RemotingMessage)
                         {
@@ -251,12 +263,12 @@ namespace RtmpSharp.Net
             }
         }
 
-        internal void InvokeResult(int invokeId, AcknowledgeMessageExt message)
+        internal void InvokeResult(int invokeId, AcknowledgeMessage message)
         {
             if (objectEncoding != ObjectEncoding.Amf3)
                 throw new NotSupportedException("Flex RPC requires AMF3 encoding.");
 
-            var invoke = new InvokeAmf3()
+            var invoke = new InvokeAmf0()
             {
                 InvokeId = invokeId,
                 MethodCall = new Method("_result", new object[] { message }, true, CallStatus.Result)
@@ -269,7 +281,7 @@ namespace RtmpSharp.Net
             if (objectEncoding != ObjectEncoding.Amf3)
                 throw new NotSupportedException("Flex RPC requires AMF3 encoding.");
 
-            var invoke = new InvokeAmf3()
+            var invoke = new InvokeAmf0()
             {
                 InvokeId = invokeId,
                 MethodCall = new Method("_error", new object[] { message }, false, CallStatus.Result)
@@ -293,11 +305,11 @@ namespace RtmpSharp.Net
         internal void InvokeReceive(string clientId, string subtopic, object body)
         {
 
-            var invoke = new InvokeAmf3()
+            var invoke = new InvokeAmf0()
             {
                 InvokeId = 0,
-                MethodCall = new Method("receive", new object[] 
-                { 
+                MethodCall = new Method("receive", new object[]
+                {
                     new AsyncMessageExt
                     {
                         Headers=new AsObject{{FlexMessageHeaders.FlexSubtopic, subtopic}},
@@ -306,6 +318,17 @@ namespace RtmpSharp.Net
                         MessageId=Uuid.NewUuid()
                     }
                 })
+            };
+            QueueCommandAsTask(invoke, 3, 0);
+        }
+
+        internal void InvokeReceive(AsyncMessage msg)
+        {
+
+            var invoke = new InvokeAmf0()
+            {
+                InvokeId = 0,
+                MethodCall = new Method("receive", new object[] { msg })
             };
             QueueCommandAsTask(invoke, 3, 0);
         }
