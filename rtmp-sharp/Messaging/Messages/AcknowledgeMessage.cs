@@ -35,7 +35,7 @@ namespace RtmpSharp.Messaging.Messages
 
         public AcknowledgeMessage()
         {
-            Timestamp = new DateTime(Environment.TickCount);
+            Timestamp = DateTime.Now;
         }
     }
 }

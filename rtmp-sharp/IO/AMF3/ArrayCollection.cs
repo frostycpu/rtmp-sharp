@@ -76,7 +76,7 @@ namespace RtmpSharp.IO.AMF3
 
         public bool Remove(object item)
         {
-            underlying.Remove(item);
+            return underlying.Remove(item);
         }
 
         public void RemoveAt(int index)
